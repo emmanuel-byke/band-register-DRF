@@ -10,6 +10,7 @@ gunicorn==23.0.0
 packaging==24.2
 pi==0.1.2
 pillow==11.1.0
+psycopg2-binary==2.9.10
 PyJWT==2.9.0
 python-dateutil==2.9.0.post0
 python-dotenv==1.0.1
