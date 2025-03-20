@@ -28,7 +28,7 @@ MEDIA_ROOT = os.path.join(BASE_DIR, MEDIA_URL)
 SECRET_KEY = 'django-insecure-9hs4!ps!hd%(ii$8z^)lv6twtl##0)k%n^1))k$3o$03y^4%y('
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = True
 
 ALLOWED_HOSTS = []
 
@@ -115,8 +115,6 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:3000",
     "http://localhost:5173",  # Add your Vite dev server
     "http://127.0.0.1:5173",
-    
-    "https://bandregister.netlify.app/",
 ]
 
 # CSRF settings - needed for cross-origin requests with credentials
@@ -125,12 +123,10 @@ CSRF_TRUSTED_ORIGINS = [
     "http://127.0.0.1:3000",
     "http://localhost:5173",  # Add your Vite dev server
     "http://127.0.0.1:5173",
-    
-    "https://bandregister.netlify.app/",
 ]
-CSRF_COOKIE_SAMESITE = 'None'  # or 'None' if using HTTPS in production and 'Lax' in Development
+CSRF_COOKIE_SAMESITE = 'Lax'  # or 'None' if using HTTPS in production and 'Lax' in Development
 CSRF_COOKIE_HTTPONLY = False  # Allow JavaScript to access the cookie
-SESSION_COOKIE_SAMESITE = 'None'  # or 'None' if using HTTPS in production and 'Lax' in Development
+SESSION_COOKIE_SAMESITE = 'Lax'  # or 'None' if using HTTPS in production and 'Lax' in Development
 SESSION_COOKIE_HTTPONLY = True
 
 # If you're using HTTPS in production, uncomment these:
@@ -161,16 +157,16 @@ WSGI_APPLICATION = 'Database.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.sqlite3',
-#         'NAME': BASE_DIR / 'db.sqlite3',
-#     }
-# }
-
 DATABASES = {
-    'default': dj_database_url.config(default=os.getenv('DATABASE_URL'))
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
+    }
 }
+
+# DATABASES = {
+#     'default': dj_database_url.config(default=os.getenv('DATABASE_URL'))
+# }
 
 # Password validation
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
