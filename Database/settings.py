@@ -10,15 +10,10 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 
-from datetime import timedelta
 from pathlib import Path
-import os
-import dj_database_url
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-MEDIA_URL = "media/"
-MEDIA_ROOT = os.path.join(BASE_DIR, MEDIA_URL)
 
 
 # Quick-start development settings - unsuitable for production
@@ -28,12 +23,10 @@ MEDIA_ROOT = os.path.join(BASE_DIR, MEDIA_URL)
 SECRET_KEY = 'django-insecure-9hs4!ps!hd%(ii$8z^)lv6twtl##0)k%n^1))k$3o$03y^4%y('
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']
 
-
-# Application definition
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -45,25 +38,51 @@ INSTALLED_APPS = [
     
     'corsheaders',
     'rest_framework',
-    # 'rest_framework_simplejwt',
     'django_filters',
     'rest_framework.authtoken',
     'Data',
     'Account'
 ]
 
-# REST_FRAMEWORK = {
-#     'DEFAULT_AUTHENTICATION_CLASSES': (
-#         'rest_framework_simplejwt.authentication.JWTAuthentication',
-#         'rest_framework.authentication.SessionAuthentication',
-#     ),
-#     'DEFAULT_PERMISSION_CLASSES': [
-#         'rest_framework.permissions.AllowAny'
-#     ],
-#     'DEFAULT_FILTER_BACKENDS': [
-#         'django_filters.rest_framework.DjangoFilterBackend'
-#     ],
-# }
+
+
+MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
+    'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
+    'django.contrib.sessions.middleware.SessionMiddleware',
+    'django.middleware.common.CommonMiddleware',
+    'django.middleware.csrf.CsrfViewMiddleware',
+    'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'django.contrib.messages.middleware.MessageMiddleware',
+    'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    
+    'Account.middleware.TokenRenewalMiddleware'
+]
+
+SESSION_COOKIE_AGE = 60 * 24 * 60 * 60  # 60 days in seconds
+SESSION_SAVE_EVERY_REQUEST = True
+TOKEN_EXPIRED_AFTER_SECONDS = 60 * 24 * 60 * 60 
+
+CORS_ALLOW_CREDENTIALS = True
+SESSION_COOKIE_SAMESITE = 'None'
+SESSION_COOKIE_SECURE = True
+SECURE_CROSS_ORIGIN_OPENER_POLICY = None
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:5173",
+    "https://bandregister.netlify.app"
+]
+
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:5173",
+    "https://bandregister.netlify.app"
+]
+
+# If you're using HTTPS in production, uncomment these:
+# CSRF_COOKIE_SECURE = True
+# SESSION_COOKIE_SECURE = True
+
+
 
 AUTH_USER_MODEL = 'Account.User'
 
@@ -80,58 +99,6 @@ REST_FRAMEWORK = {
         'django_filters.rest_framework.DjangoFilterBackend'
     ],
 }
-
-
-# SIMPLE_JWT = {
-#     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
-#     'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
-# }
-
-MIDDLEWARE = [
-    'corsheaders.middleware.CorsMiddleware',
-    
-    'django.middleware.security.SecurityMiddleware',
-    'django.contrib.sessions.middleware.SessionMiddleware',
-    'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
-    'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'django.contrib.messages.middleware.MessageMiddleware',
-    'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    
-    'Account.middleware.TokenRenewalMiddleware'
-]
-
-SESSION_COOKIE_AGE = 60 * 24 * 60 * 60  # 60 days in seconds
-SESSION_SAVE_EVERY_REQUEST = True
-
-# Token expiry (60 days)
-TOKEN_EXPIRED_AFTER_SECONDS = 60 * 24 * 60 * 60 
-
-# CORS settings - Allow requests from frontend
-CORS_ALLOW_ALL_ORIGINS = DEBUG  # In production, set to False and use CORS_ALLOWED_ORIGINS
-CORS_ALLOW_CREDENTIALS = True
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "http://localhost:5173",  # Add your Vite dev server
-    "http://127.0.0.1:5173",
-]
-
-# CSRF settings - needed for cross-origin requests with credentials
-CSRF_TRUSTED_ORIGINS = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "http://localhost:5173",  # Add your Vite dev server
-    "http://127.0.0.1:5173",
-]
-CSRF_COOKIE_SAMESITE = 'Lax'  # or 'None' if using HTTPS in production and 'Lax' in Development
-CSRF_COOKIE_HTTPONLY = False  # Allow JavaScript to access the cookie
-SESSION_COOKIE_SAMESITE = 'Lax'  # or 'None' if using HTTPS in production and 'Lax' in Development
-SESSION_COOKIE_HTTPONLY = True
-
-# If you're using HTTPS in production, uncomment these:
-# CSRF_COOKIE_SECURE = True
-# SESSION_COOKIE_SECURE = True
 
 ROOT_URLCONF = 'Database.urls'
 
@@ -164,9 +131,6 @@ DATABASES = {
     }
 }
 
-# DATABASES = {
-#     'default': dj_database_url.config(default=os.getenv('DATABASE_URL'))
-# }
 
 # Password validation
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
@@ -203,6 +167,11 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
 STATIC_URL = 'static/'
+STATIC_ROOT = str(BASE_DIR / 'staticfiles')
+STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+
+MEDIA_URL = "media/"
+MEDIA_ROOT = str(BASE_DIR / 'media')
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
