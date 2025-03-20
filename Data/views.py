@@ -1,6 +1,7 @@
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly, AllowAny
+from rest_framework.views import APIView
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Count, Avg, Q, Sum, F, ExpressionWrapper, DurationField
 from django.db.models import Exists, OuterRef
@@ -140,7 +141,12 @@ class VenueViewSet(viewsets.ModelViewSet):
     
     
     
-    
+
+class TestConnection(APIView):
+    permission_classes = [AllowAny]
+    authentication_classes = []
+    def get(self, request):
+        return Response({'connected': True})
     
     
     

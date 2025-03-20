@@ -2,10 +2,8 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import csrf_token_view
 from .views import (
-    VenueViewSet, SongsLearntViewSet, DivisionViewSet,
-    AttendanceViewSet, AbsentViewSet, RatingsViewSet,
-    PerformanceViewSet, PendingRequestViewSet,
-    PendingActivityViewSet, FeedbackViewSet
+    VenueViewSet, SongsLearntViewSet, DivisionViewSet, AttendanceViewSet, AbsentViewSet, RatingsViewSet,
+    PerformanceViewSet, PendingRequestViewSet, PendingActivityViewSet, FeedbackViewSet, TestConnection
 )
 
 router = DefaultRouter()
@@ -22,6 +20,7 @@ router.register(r'feedbacks', FeedbackViewSet, basename='feedback')
 
 
 urlpatterns = [
+    path("test-connection/", TestConnection.as_view(), name="test_connection"),
     path("csrftoken/", csrf_token_view, name="csrftoken"),
     path('', include(router.urls)),
     # [GET /activities/ - List all activities, POST /activities/ - Create new actiity, GET /activities/1/ - Retrieve single actiity
