@@ -3,7 +3,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly, AllowAny
 from rest_framework.views import APIView
 from django_filters.rest_framework import DjangoFilterBackend
-from django.db.models import Count, Avg, Q, Sum, F, ExpressionWrapper, DurationField
+from django.db.models import Count, Avg, Q, Sum, Max, Min, F, ExpressionWrapper, DurationField
 from django.db.models import Exists, OuterRef
 from django.utils import timezone
 from datetime import timedelta, date
@@ -342,6 +342,10 @@ class DivisionViewSet(viewsets.ModelViewSet):
             )
         )
 
+        attendances = attendances.annotate(
+            earliest_venue_date=Min('venue__date')
+        ).order_by('earliest_venue_date')
+        
         # Statistics
         attendance_duration_data = attendances.aggregate(total_duration=Sum('duration'))
         absent_duration_data = absents.aggregate(total_duration=Sum('duration'))

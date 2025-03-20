@@ -4,6 +4,7 @@ from rest_framework.views import APIView
 from rest_framework.authtoken.models import Token
 from django.contrib.auth import authenticate
 from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.parsers import MultiPartParser, FormParser
 from .serializers import UserSerializer, UserCreateSerializer, PublicUserSerializer, AuthTokenSerializer
 from rest_framework.decorators import action
 from django.utils import timezone
@@ -23,6 +24,7 @@ class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
     permission_classes = [permissions.IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
 
     def get_queryset(self):
         if self.request.user.is_admin:
@@ -129,6 +131,12 @@ class SignupView(generics.CreateAPIView):
     serializer_class = UserCreateSerializer
     permission_classes = [AllowAny]
     
+    def perform_create(self, serializer):
+        user = serializer.save()
+        if User.objects.count() == 1:
+            user.is_admin = True
+            user.save(update_fields=['is_admin'])
+    
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -136,10 +144,8 @@ class SignupView(generics.CreateAPIView):
         try:
             self.perform_create(serializer)
         except IntegrityError as e:
-            # Handle potential race condition errors
             error_messages = {
                 'username': 'A user with that username already exists.',
-                # 'email': 'This email address is already registered.'
             }
             for field, message in error_messages.items():
                 if field in str(e).lower():
@@ -152,22 +158,24 @@ class SignupView(generics.CreateAPIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Create token for the new user
+        # Refresh user to include is_admin changes
         user = serializer.instance
-        token, created = Token.objects.get_or_create(user=user)
+        user.refresh_from_db()
         
-        # Set token expiry
+        # Create token
+        token, created = Token.objects.get_or_create(user=user)
         token.created = timezone.now()
         token.save()
         
-        # Login user (create session)
+        # Login user
         login(request, user)
         
         return Response({
             'user': UserSerializer(user, context=self.get_serializer_context()).data,
             'token': token.key
         }, status=status.HTTP_201_CREATED)
-
+        
+        
 @method_decorator(csrf_exempt, name='dispatch')
 class LoginView(ObtainAuthToken):
     """Custom login view to return auth token and user info"""

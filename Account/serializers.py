@@ -79,7 +79,7 @@ class UserCreateSerializer(serializers.ModelSerializer):
 class PublicUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ('id', 'username', 'fname', 'lname', 'divisions', 'is_admin', 'is_active')
+        fields = ('id', 'username', 'fname', 'lname', 'divisions', 'is_admin', 'is_active', 'profile_picture')
         read_only_fields = ('username', 'fname', 'lname', 'divisions')
    
    
