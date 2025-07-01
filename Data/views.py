@@ -277,7 +277,7 @@ class DivisionViewSet(viewsets.ModelViewSet):
             return Response({'detail': 'venue not found.'}, status=status.HTTP_404_NOT_FOUND)
     
 
-    @action(detail=False, methods=['post'], url_path='users/(?P<user_id>[^/.]+)/all')
+    @action(detail=False, methods=['get'], url_path='users/(?P<user_id>[^/.]+)/all')
     def get_user_divisions_details(self, request, user_id=None):
         """Get divisions by user ID with date filtering"""
         from datetime import datetime
@@ -432,7 +432,8 @@ class DivisionViewSet(viewsets.ModelViewSet):
             'totalSessions': total_sessions,
             'attendedSessions': attendance_totals['total_attended'] or 0,
             'attendancePercentage': (total_attended/total_sessions)*100 if total_sessions > 0 else 0,
-            'top_absence_reason': absent_queryset.values('reason').annotate(value=Count('reason')).order_by('-value').first()
+            'top_absence_reason': absent_queryset.values('reason').annotate(value=Count('reason')).order_by('-value')
+                .first() if(total_sessions-total_attended>0) else ""
         }
 
 
@@ -648,7 +649,7 @@ class AttendanceViewSet(viewsets.ModelViewSet):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
     
-    @action(detail=False, methods=['post'])
+    @action(detail=False, methods=['get'])
     def monthly_attendance(self, request):
         total_months = int(request.data.get('totalMonths', 3))
         today = timezone.now().date()

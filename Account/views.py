@@ -4,7 +4,7 @@ from rest_framework.views import APIView
 from rest_framework.authtoken.models import Token
 from django.contrib.auth import authenticate
 from rest_framework.permissions import IsAuthenticated, AllowAny
-from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from .serializers import UserSerializer, UserCreateSerializer, PublicUserSerializer, AuthTokenSerializer
 from rest_framework.decorators import action
 from django.utils import timezone
@@ -18,13 +18,16 @@ from django.utils.decorators import method_decorator
 from django.db.models import Sum, Value
 from django.db.models.functions import Coalesce
 
+from rest_framework_simplejwt.tokens import RefreshToken
+from django.middleware.csrf import get_token
+
 User = get_user_model()
 
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
     permission_classes = [permissions.IsAuthenticated]
-    parser_classes = [MultiPartParser, FormParser]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     def get_queryset(self):
         if self.request.user.is_admin:
@@ -88,7 +91,7 @@ class UserViewSet(viewsets.ModelViewSet):
             return Response({'sucess': True, 'user': PublicUserSerializer(user, many=False).data})
         return Response({'sucess': False})
     
-    @action(detail=False, methods=['post'])
+    @action(detail=False, methods=['get'])
     def top_attendance(self, request):
         max_users = int(request.data.get('max_users', 5))
         
@@ -125,6 +128,31 @@ class PublicUserViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = User.objects.all()
     serializer_class = PublicUserSerializer
     permission_classes = [permissions.AllowAny]
+
+
+def set_auth_cookies(response, user, request=None):
+    refresh = RefreshToken.for_user(user)
+    access_token = str(refresh.access_token)
+    csrf_token = get_token(request)
+
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=True,
+        secure=True,
+        samesite="Lax",
+        max_age=60 * 15,
+    )
+
+    response.set_cookie(
+        key="csrftoken",
+        value=csrf_token,
+        httponly=False,
+        secure=True,
+        samesite="Lax",
+    )
+    return response
+
     
 @method_decorator(csrf_exempt, name='dispatch')
 class SignupView(generics.CreateAPIView):
@@ -161,19 +189,9 @@ class SignupView(generics.CreateAPIView):
         # Refresh user to include is_admin changes
         user = serializer.instance
         user.refresh_from_db()
-        
-        # Create token
-        token, created = Token.objects.get_or_create(user=user)
-        token.created = timezone.now()
-        token.save()
-        
-        # Login user
-        login(request, user)
-        
-        return Response({
-            'user': UserSerializer(user, context=self.get_serializer_context()).data,
-            'token': token.key
-        }, status=status.HTTP_201_CREATED)
+
+        response =  Response({ 'user': UserSerializer(user, context=self.get_serializer_context()).data })
+        return set_auth_cookies(response, user, request)
         
         
 @method_decorator(csrf_exempt, name='dispatch')
@@ -183,34 +201,16 @@ class LoginView(ObtainAuthToken):
     permission_classes = [AllowAny]
     
     def post(self, request, *args, **kwargs):
-        serializer = self.serializer_class(
-            data=request.data,
-            context={'request': request}
-        )
-        serializer.is_valid(raise_exception=True)
-        user = serializer.validated_data['user']
+        username = request.data.get("username")
+        password = request.data.get("password")
+
+        user = authenticate(username=username, password=password)
+        if not user:
+            return Response({"detail": "Invalid credentials"}, status=401)
+
+        response = Response({ 'user': UserSerializer(user).data})
+        return set_auth_cookies(response, user, request)
         
-        # Get or create token
-        token, created = Token.objects.get_or_create(user=user)
-        
-        # If token exists but is expired, create a new one
-        if not created:
-            token_expired_time = token.created + timedelta(seconds=settings.TOKEN_EXPIRED_AFTER_SECONDS)
-            if token_expired_time < timezone.now():
-                token.delete()
-                token = Token.objects.create(user=user)
-        
-        # Update token created time
-        token.created = timezone.now()
-        token.save()
-        
-        # Login user (create session)
-        login(request, user)
-        
-        return Response({
-            'token': token.key,
-            'user': UserSerializer(user).data
-        })
 
 @method_decorator(csrf_exempt, name='dispatch')
 class LogoutView(APIView):
@@ -218,16 +218,10 @@ class LogoutView(APIView):
     permission_classes = [AllowAny]
     
     def post(self, request):
-        # Delete token
-        try:
-            request.user.auth_token.delete()
-        except (AttributeError, Token.DoesNotExist):
-            pass
-        
-        # Logout (delete session)
-        logout(request)
-        
-        return Response({"detail": "Successfully logged out."}, status=status.HTTP_200_OK)
+        response = Response({"message": "Logged out"})
+        response.delete_cookie("access_token")
+        response.delete_cookie("csrftoken")
+        return response
 
 class ManageUserView(generics.RetrieveUpdateAPIView):
     """Manage the authenticated user"""

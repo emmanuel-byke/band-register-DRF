@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 
 from pathlib import Path
+from datetime import timedelta
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -23,7 +24,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-9hs4!ps!hd%(ii$8z^)lv6twtl##0)k%n^1))k$3o$03y^4%y('
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = True
 
 ALLOWED_HOSTS = ['*']
 
@@ -40,8 +41,10 @@ INSTALLED_APPS = [
     'rest_framework',
     'django_filters',
     'rest_framework.authtoken',
+    'rest_framework_simplejwt.token_blacklist',
     'Data',
-    'Account'
+    'Account',
+    'Tokens'
 ]
 
 
@@ -57,38 +60,37 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     
-    'Account.middleware.TokenRenewalMiddleware'
+    # 'Account.middleware.TokenRenewalMiddleware'
 ]
 
-SESSION_COOKIE_AGE = 60 * 24 * 60 * 60  # 60 days in seconds
-SESSION_SAVE_EVERY_REQUEST = True
-TOKEN_EXPIRED_AFTER_SECONDS = 60 * 24 * 60 * 60 
 CORS_ALLOW_CREDENTIALS = True
-SESSION_COOKIE_SAMESITE = 'None'
-SESSION_COOKIE_SECURE = True
-SECURE_CROSS_ORIGIN_OPENER_POLICY = None
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "https://bandregister.netlify.app"
 ]
 
+CSRF_COOKIE_NAME = 'csrftoken'
+CSRF_COOKIE_HTTPONLY = False
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:5173",
     "https://bandregister.netlify.app"
 ]
 
-# If you're using HTTPS in production, uncomment these:
-CSRF_COOKIE_SECURE = True
-SESSION_COOKIE_SECURE = True
-
-
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
+    "ROTATE_REFRESH_TOKENS": False,
+    "BLACKLIST_AFTER_ROTATION": True,
+    "SIGNING_KEY": SECRET_KEY,
+    "AUTH_HEADER_TYPES": ("bearer",),
+    "AUTH_TOKEN_CLASSES":("rest_framework_simplejwt.tokens.AccessToken",),
+}
 
 AUTH_USER_MODEL = 'Account.User'
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        # 'rest_framework.authentication.TokenAuthentication',
-        'Account.authentication.ExpiringTokenAuthentication',
+        'Tokens.authentication.JWTAuthFromCookie',
         'rest_framework.authentication.SessionAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
