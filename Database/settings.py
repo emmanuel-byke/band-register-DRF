@@ -78,12 +78,20 @@ CSRF_TRUSTED_ORIGINS = [
 
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),
-    "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
-    "ROTATE_REFRESH_TOKENS": False,
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
+    "ROTATE_REFRESH_TOKENS": True,
     "BLACKLIST_AFTER_ROTATION": True,
     "SIGNING_KEY": SECRET_KEY,
+    "ALGORITHM": "HS256",
     "AUTH_HEADER_TYPES": ("bearer",),
     "AUTH_TOKEN_CLASSES":("rest_framework_simplejwt.tokens.AccessToken",),
+    "UPDATE_LAST_LOGIN": True,
+    "VERIFY_SIGNATURE": True,
+
+    "AUTH_COOKIE": "access_token",
+    "AUTH_COOKIE_HTTP_ONLY": True,
+    "AUTH_COOKIE_SECURE": True,
+    "AUTH_COOKIE_SAMESITE": "Lax",
 }
 
 AUTH_USER_MODEL = 'Account.User'

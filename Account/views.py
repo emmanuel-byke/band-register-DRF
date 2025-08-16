@@ -18,6 +18,9 @@ from django.utils.decorators import method_decorator
 from django.db.models import Sum, Value
 from django.db.models.functions import Coalesce
 
+from django.views.decorators.csrf import ensure_csrf_cookie
+from rest_framework.decorators import api_view, permission_classes
+
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.middleware.csrf import get_token
 
@@ -133,7 +136,7 @@ class PublicUserViewSet(viewsets.ReadOnlyModelViewSet):
 def set_auth_cookies(response, user, request=None):
     refresh = RefreshToken.for_user(user)
     access_token = str(refresh.access_token)
-    csrf_token = get_token(request)
+    csrf_token = get_token(request) if request else None
 
     response.set_cookie(
         key="access_token",
@@ -144,17 +147,29 @@ def set_auth_cookies(response, user, request=None):
         max_age=60 * 15,
     )
 
-    response.set_cookie(
-        key="csrftoken",
-        value=csrf_token,
-        httponly=False,
-        secure=True,
-        samesite="Lax",
-    )
+    if csrf_token:
+        response.set_cookie(
+            key="csrftoken",
+            value=csrf_token,
+            httponly=False,
+            secure=True,
+            samesite="Lax",
+            max_age=24 * 60 * 60,  # 24 hours
+        )
+
     return response
 
+@api_view(['GET'])
+@permission_classes([AllowAny])
+@ensure_csrf_cookie
+def get_csrf_token(request):
+    csrf_token = get_token(request)
+    return Response({'csrfToken': csrf_token})
+
+
     
-@method_decorator(csrf_exempt, name='dispatch')
+# @method_decorator(csrf_exempt, name='dispatch')
+@permission_classes([AllowAny])
 class SignupView(generics.CreateAPIView):
     serializer_class = UserCreateSerializer
     permission_classes = [AllowAny]
@@ -196,7 +211,8 @@ class SignupView(generics.CreateAPIView):
         return set_auth_cookies(response, user, request)
         
         
-@method_decorator(csrf_exempt, name='dispatch')
+# @method_decorator(csrf_exempt, name='dispatch')
+@permission_classes([AllowAny])
 class LoginView(ObtainAuthToken):
     """Custom login view to return auth token and user info"""
     serializer_class = AuthTokenSerializer
@@ -214,17 +230,41 @@ class LoginView(ObtainAuthToken):
         return set_auth_cookies(response, user, request)
         
 
-@method_decorator(csrf_exempt, name='dispatch')
+# @method_decorator(csrf_exempt, name='dispatch')
+@permission_classes([AllowAny])
 class LogoutView(APIView):
     """Logout view to remove token and session"""
     permission_classes = [AllowAny]
     
     def post(self, request):
         response = Response({"message": "Logged out"})
-        response.delete_cookie("access_token")
-        response.delete_cookie("csrftoken")
+        response.delete_cookie(
+            "access_token",
+            samesite="Lax"
+        )
+        response.delete_cookie(
+            "csrftoken",
+            samesite="Lax"
+        )
         return response
 
+class RefreshTokenView(APIView):
+    """
+    Refresh the JWT token - for future implementation
+    Note: This would require storing refresh tokens in httpOnly cookies too
+    """
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request):
+        # For now, just return current user info
+        # You can implement refresh token logic here later
+        response = Response({
+            'user': UserSerializer(request.user).data,
+            'message': 'Token refreshed'
+        })
+        return set_auth_cookies(response, request.user, request)
+    
+    
 class ManageUserView(generics.RetrieveUpdateAPIView):
     """Manage the authenticated user"""
     serializer_class = UserSerializer
