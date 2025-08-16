@@ -377,7 +377,7 @@ class DivisionViewSet(viewsets.ModelViewSet):
             }
         })
         
-    @action(detail=False, methods=['post'])
+    @action(detail=False, methods=['get'])
     def get_all_users_divisions_details(self, request):
         """Get divisions by user ID with date filtering"""
         from datetime import datetime
