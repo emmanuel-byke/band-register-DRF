@@ -152,31 +152,39 @@ class AbsentSerializer(serializers.ModelSerializer):
         }
 
 
+
 class RatingsSerializer(serializers.ModelSerializer):
     from Account.serializers import UserSerializer
     
     user_detail = UserSerializer(source='user', read_only=True)
     division_name = serializers.ReadOnlyField(source='division.name')
-    
+    is_owner = serializers.SerializerMethodField()
+
     class Meta:
         model = Ratings
-        fields = ['id', 'user', 'value', 'division', 'user_detail', 'division_name']
+        fields = ['id', 'user', 'value', 'division', 'created_at', 
+                 'updated_at', 'user_detail', 'division_name', 'is_owner']
+        read_only_fields = ['created_at', 'updated_at']
         extra_kwargs = {
             'value': {'min_value': 1.0, 'max_value': 5.0}
         }
 
-    def validate(self, data):
-        # Ensure a user can only rate a division once
-        if self.instance is None:  # Only check on creation
-            existing = Ratings.objects.filter(
-                user=data.get('user'), 
-                division=data.get('division')
-            ).exists()
-            
-            if existing:
-                raise serializers.ValidationError("User has already rated this division")
+    def get_is_owner(self, obj):
+        request = self.context.get('request')
+        return request and request.user == obj.user
+
+    def create(self, validated_data):
+        user = self.context['request'].user
+        division = validated_data['division']
         
-        return data
+        # Update existing rating or create new
+        rating, created = Ratings.objects.update_or_create(
+            user=user,
+            division=division,
+            defaults={'value': validated_data['value']}
+        )
+        return rating
+
 
 
 class PerformanceSerializer(serializers.ModelSerializer):

@@ -52,11 +52,11 @@ class UserCreateSerializer(serializers.ModelSerializer):
             username=validated_data['username'],
             password=validated_data['password'],
             phone_number=validated_data['phone_number'],
-            gender=validated_data.get('sex', 'Male'),
+            gender=validated_data.get('gender', 'Male'),
             occupation=validated_data.get('occupation', 'Student'),
             fname=validated_data.get('fname'),
             lname=validated_data.get('lname'),
-            profile_picture=validated_data.get('profile_picture'),
+            # profile_picture=validated_data.get('profile_picture'),
         )
         if divisions:
             user.divisions.set(divisions)

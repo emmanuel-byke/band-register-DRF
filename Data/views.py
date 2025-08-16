@@ -705,27 +705,31 @@ class RatingsViewSet(viewsets.ModelViewSet):
     serializer_class = RatingsSerializer
     permission_classes = [IsAuthenticatedOrReadOnly]
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ['user', 'division']
-    
+    filterset_fields = ['division']
+
     def get_queryset(self):
         queryset = super().get_queryset()
         
-        # Get ratings for current user
-        if self.request.user.is_authenticated:
-            my_ratings = self.request.query_params.get('my_ratings')
-            if my_ratings and my_ratings.lower() == 'true':
-                queryset = queryset.filter(user=self.request.user)
-        
+        # Show only current user's ratings
+        if self.request.query_params.get('mine') == 'true':
+            return queryset.filter(user=self.request.user)
+            
         return queryset
-    
-    def perform_create(self, serializer):
-        # Automatically set user to current user if not specified
-        user = serializer.validated_data.get('user')
-        if not user and self.request.user.is_authenticated:
-            serializer.save(user=self.request.user)
-        else:
-            serializer.save()
 
+    @action(detail=False, methods=['get'])
+    def averages(self, request):
+        divisions = Division.objects.annotate(
+            avg_rating=Avg('ratings__value'),
+            rating_count=Count('ratings')
+        ).values('id', 'name', 'avg_rating', 'rating_count')
+        
+        return Response(divisions)
+
+    @action(detail=True, methods=['get'])
+    def division_average(self, request, pk=None):
+        division = self.get_object()
+        stats = Ratings.get_average_rating(division)
+        return Response(stats)
 
 class PerformanceViewSet(viewsets.ModelViewSet):
     queryset = Performance.objects.all()

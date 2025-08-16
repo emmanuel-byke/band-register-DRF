@@ -1,4 +1,5 @@
 from django.db import models
+from django.db.models import Avg, Count
 from django.core.validators import MinValueValidator, MaxValueValidator
 
 # Create your models here.
@@ -77,12 +78,29 @@ class Absent(models.Model):
     
     def __str__(self):
         return self.reason
-    
+
 class Ratings(models.Model):
-    user = models.OneToOneField('Account.User', on_delete=models.SET_NULL, related_name='ratings', null=True, blank=True)
+    user = models.ForeignKey('Account.User', on_delete=models.CASCADE, related_name='ratings')
     value = models.FloatField(validators=[MinValueValidator(1.0), MaxValueValidator(5.0)])
-    division = models.ForeignKey(Division, on_delete=models.CASCADE, related_name='ratings', null=True, blank=True)
-    
+    division = models.ForeignKey(Division, on_delete=models.CASCADE, related_name='ratings')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'division'],
+                name='unique_user_division_rating'
+            )
+        ]
+
+    @classmethod
+    def get_average_rating(cls, division):
+        return cls.objects.filter(division=division).aggregate(
+            avg_rating=Avg('value'),
+            rating_count=Count('id')
+        )
+
 class Performance(models.Model):
     venue = models.ManyToManyField(Venue)
     division = models.ForeignKey(Division, on_delete=models.CASCADE, related_name='performance', null=True, blank=True)    
