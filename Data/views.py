@@ -23,6 +23,8 @@ from .serializers import (
     PendingActivitySerializer, FeedbackSerializer
 )
 
+from django.core.exceptions import ValidationError
+from django.db import IntegrityError, transaction
 from django.views.decorators.http import require_GET
 from django.http import JsonResponse
 from django.middleware.csrf import get_token
@@ -277,22 +279,30 @@ class DivisionViewSet(viewsets.ModelViewSet):
             return Response({'detail': 'venue not found.'}, status=status.HTTP_404_NOT_FOUND)
     
 
-    @action(detail=False, methods=['get'], url_path='users/(?P<user_id>[^/.]+)/all')
-    def get_user_divisions_details(self, request, user_id=None):
+    @action(detail=False, methods=['get'], url_path='user/stat')
+    def get_user_divisions_details(self, request):
         """Get divisions by user ID with date filtering"""
         from datetime import datetime
-        
-        User = get_user_model()
-        target_user = get_object_or_404(User, id=user_id)
-        
-        divId = request.data.get('divId')
-        user_divisions =  target_user.divisions.all() if divId=='all' else target_user.divisions.filter(id=divId)
+
+        user_id = request.query_params.get('userId')
+        divId = request.query_params.get('divId')
+
+        user_divisions = None
+        target_user = None
+        if user_id is None or user_id == 'all':
+            user_divisions = Division.objects.all() 
+            if divId and divId != 'all':
+                user_divisions = user_divisions.filter(id=divId)
+        else:
+            User = get_user_model()
+            target_user = get_object_or_404(User, id=user_id)
+            user_divisions =  target_user.divisions.all() if divId=='all' else target_user.divisions.filter(id=divId)
         
         # Parse dates with validation
+        start_date_str = request.query_params.get('startDate')
+        end_date_str = request.query_params.get('endDate')
+        
         try:
-            start_date_str = request.data.get('startDate')
-            end_date_str = request.data.get('endDate')
-            
             startDate = datetime.strptime(start_date_str, '%Y-%m-%d').date() if start_date_str \
                 else date.today().replace(day=1)
             endDate = datetime.strptime(end_date_str, '%Y-%m-%d').date() if end_date_str \
@@ -365,7 +375,10 @@ class DivisionViewSet(viewsets.ModelViewSet):
         serializers = {
             'attendances': AttendanceSerializer(attendances, many=True).data,
             'absents': AbsentSerializer(absents, many=True).data,
-            'divisions': DivisionListSerializer(target_user.divisions.all(), many=True).data # This was supposed to be on it's own action
+            'divisions': DivisionListSerializer(
+                target_user.divisions.all() if target_user else Division.objects.all(),
+                many=True
+            ).data # This was supposed to be on it's own action
         }
 
         return Response({
@@ -383,13 +396,13 @@ class DivisionViewSet(viewsets.ModelViewSet):
         from datetime import datetime
         
         
-        divId = request.data.get('divId')
+        divId = request.query_params.get('divId')
         divisions = Division.objects.all() if divId=='all' or divId is None else Division.objects.filter(id=divId)
         
         # Parse dates with validation
         try:
-            start_date_str = request.data.get('startDate')
-            end_date_str = request.data.get('endDate')
+            start_date_str = request.query_params.get('startDate')
+            end_date_str = request.query_params.get('endDate')
             
             startDate = datetime.strptime(start_date_str, '%Y-%m-%d').date() if start_date_str \
                 else date.today().replace(day=1)
@@ -716,18 +729,92 @@ class RatingsViewSet(viewsets.ModelViewSet):
             
         return queryset
 
-    @action(detail=False, methods=['get'])
-    def averages(self, request):
-        divisions = Division.objects.annotate(
-            avg_rating=Avg('ratings__value'),
-            rating_count=Count('ratings')
-        ).values('id', 'name', 'avg_rating', 'rating_count')
-        
-        return Response(divisions)
 
-    @action(detail=True, methods=['get'])
-    def division_average(self, request, pk=None):
-        division = self.get_object()
+    @action(detail=False, methods=['POST'])
+    def rate_div(self, request):
+        user = request.user
+        
+        # Validate required fields
+        required_fields = {'divId', 'value'}
+        if missing := required_fields - set(request.data):
+            return Response(
+                {"detail": f"Missing required fields: {', '.join(missing)}"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        div_id = request.data.get('divId')
+        value = request.data.get('value')
+
+        try:
+            # Validate rating value
+            value = float(value)
+            if not (1.0 <= value <= 5.0):
+                raise ValueError()
+        except (TypeError, ValueError):
+            return Response(
+                {"value": "Must be a number between 1.0 and 5.0"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            # Get division with existence check
+            division = Division.objects.get(id=div_id)
+        except Division.DoesNotExist:
+            return Response(
+                {"divId": "Division not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        try:
+            # Create or update rating
+            rating, created = Ratings.objects.update_or_create(
+                user=user,
+                division=division,
+                defaults={'value': value}
+            )
+        except IntegrityError:
+            return Response(
+                {"detail": "Database integrity error occurred"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+        except ValidationError as e:
+            return Response(
+                {"detail": e.message_dict},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Return appropriate status code
+        status_code = status.HTTP_201_CREATED if created else status.HTTP_200_OK
+        serializer = RatingsSerializer(rating)
+        return Response(serializer.data, status=status_code)
+    
+    @action(detail=False, methods=['get'])
+    def user_div_rating(self, request):
+        print(request.query_params)
+        user_id = request.query_params.get('userId')
+        divId = request.query_params.get('divId')
+        if not user_id or not divId:
+            return Response({"detail": "User ID and Division ID are required."}, status=status.HTTP_400_BAD_REQUEST)
+        ratings = Ratings.objects.get(user_id=user_id, division_id=divId)
+        serializer = RatingsSerializer(ratings, many=False)
+        return Response(serializer.data)
+
+    # @action(detail=False, methods=['get'])
+    # def averages(self, request):
+    #     divisions = Division.objects.annotate(
+    #         avg_rating=Avg('ratings__value'),
+    #         rating_count=Count('ratings')
+    #     ).values('id', 'name', 'avg_rating', 'rating_count')
+        
+    #     return Response(divisions)
+
+    @action(detail=False, methods=['get'])
+    def division_average(self, request):
+        division_id = request.query_params.get('divId')
+        if not division_id:
+            return Response({"detail": "Division ID is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        division = get_object_or_404(Division, id=division_id)
         stats = Ratings.get_average_rating(division)
         return Response(stats)
 
@@ -847,3 +934,48 @@ class FeedbackViewSet(viewsets.ModelViewSet):
             
         return queryset
     
+    @action(detail=False, methods=['get'])
+    def render(self, request):
+        """Render a pending request with atomic shown_count update"""
+        user_id = request.query_params.get('userId')
+
+        if not user_id:
+            return Response({"detail": "userId is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        User = get_user_model()
+        target_user = get_object_or_404(User, id=user_id)
+
+        try:
+            with transaction.atomic():
+                # Get and lock the target feedback using atomic selection
+                selected_feedback = (
+                    Feedback.objects
+                    .filter(user=target_user)
+                    .select_for_update()
+                    .order_by('shown_count', '-created_at')
+                    .first()
+                )
+                
+                if not selected_feedback:
+                    return Response(
+                        {"detail": "No feedback found for this user."},
+                        status=status.HTTP_404_NOT_FOUND
+                    )
+
+                # Update shown_count atomically
+                selected_feedback.shown_count = F('shown_count') + 1
+                selected_feedback.save()
+                
+                # Refresh instance to get updated shown_count value
+                selected_feedback.refresh_from_db()
+
+        except Exception as e:
+            return Response(
+                {"detail": f"Error processing request: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+        serializer = self.get_serializer(selected_feedback, many=False)
+        return Response(serializer.data)
+    
+

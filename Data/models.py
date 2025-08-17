@@ -142,6 +142,7 @@ class Feedback(models.Model):
     highlighted_title = models.CharField(max_length=128)
     desc = models.TextField(null=True, blank=True)
     completed = models.BooleanField(default=False)
+    shown_count = models.IntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

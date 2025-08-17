@@ -249,10 +249,10 @@ class FeedbackSerializer(serializers.ModelSerializer):
     class Meta:
         model = Feedback
         fields = [
-            'id', 'user', 'user_detail', 'sender', 'sender_detail', 'title',
+            'id', 'user', 'user_detail', 'sender', 'sender_detail', 'title', 'shown_count',
             'highlighted_title', 'desc', 'completed', 'created_at', 'created_at_formatted'
         ]
-        read_only_fields = ['created_at']
+        read_only_fields = ['created_at', 'shown_count']
         extra_kwargs = {
             'user': {'required': True},
             'sender': {'required': False}
