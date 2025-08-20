@@ -11,7 +11,8 @@ class User(AbstractUser):
     profile_picture = models.ImageField(upload_to='profile_pictures', null=True, blank=True)
     is_admin = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
-    
+    logged_in_times = models.PositiveIntegerField(default=0)
+
     divisions = models.ManyToManyField('Data.Division', blank=True, related_name='users')
     
     REQUIRED_FIELDS = []

@@ -242,6 +242,9 @@ class LoginView(ObtainAuthToken):
         user = authenticate(username=username, password=password)
         if not user:
             return Response({"detail": "Invalid credentials"}, status=401)
+        else:
+            user.logged_in_times += 1
+            user.save(update_fields=['logged_in_times'])
 
         response = Response({ 'user': UserSerializer(user).data})
         return set_auth_cookies(response, user, request)
