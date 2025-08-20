@@ -24,7 +24,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-9hs4!ps!hd%(ii$8z^)lv6twtl##0)k%n^1))k$3o$03y^4%y('
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
 ALLOWED_HOSTS = ['*']
 
@@ -64,6 +64,7 @@ MIDDLEWARE = [
 ]
 
 CORS_ALLOW_CREDENTIALS = True
+SECURE_COOKIES = not DEBUG
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "https://bandregister.netlify.app"
@@ -71,6 +72,15 @@ CORS_ALLOWED_ORIGINS = [
 
 CSRF_COOKIE_NAME = 'csrftoken'
 CSRF_COOKIE_HTTPONLY = False
+CSRF_COOKIE_SECURE = SECURE_COOKIES
+CSRF_COOKIE_SAMESITE = 'Lax'
+CSRF_USE_SESSIONS = False
+
+# Session settings (even though we're using JWT, sessions might be used for CSRF)
+SESSION_COOKIE_SECURE = SECURE_COOKIES
+SESSION_COOKIE_SAMESITE = 'Lax'
+
+
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:5173",
     "https://bandregister.netlify.app"
@@ -83,15 +93,10 @@ SIMPLE_JWT = {
     "BLACKLIST_AFTER_ROTATION": True,
     "SIGNING_KEY": SECRET_KEY,
     "ALGORITHM": "HS256",
-    "AUTH_HEADER_TYPES": ("bearer",),
+    "AUTH_HEADER_TYPES": ("Bearer",),
     "AUTH_TOKEN_CLASSES":("rest_framework_simplejwt.tokens.AccessToken",),
     "UPDATE_LAST_LOGIN": True,
     "VERIFY_SIGNATURE": True,
-
-    "AUTH_COOKIE": "access_token",
-    "AUTH_COOKIE_HTTP_ONLY": True,
-    "AUTH_COOKIE_SECURE": True,
-    "AUTH_COOKIE_SAMESITE": "Lax",
 }
 
 AUTH_USER_MODEL = 'Account.User'
@@ -186,3 +191,22 @@ MEDIA_ROOT = str(BASE_DIR / 'media')
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+# Logging configuration for debugging
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'loggers': {
+        'Account.views': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
+            'propagate': True,
+        },
+    },
+}

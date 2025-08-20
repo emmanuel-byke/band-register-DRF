@@ -2,6 +2,7 @@ from rest_framework import viewsets, permissions, status, generics
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.authtoken.models import Token
+from rest_framework_simplejwt.exceptions import TokenError, InvalidToken
 from django.contrib.auth import authenticate
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
@@ -20,10 +21,11 @@ from django.db.models.functions import Coalesce
 
 from django.views.decorators.csrf import ensure_csrf_cookie
 from rest_framework.decorators import api_view, permission_classes
-
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.middleware.csrf import get_token
+import logging
 
+logger = logging.getLogger(__name__)
 User = get_user_model()
 
 class UserViewSet(viewsets.ModelViewSet):
@@ -134,25 +136,39 @@ class PublicUserViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 def set_auth_cookies(response, user, request=None):
+    """Set JWT tokens and CSRF token in cookies"""
     refresh = RefreshToken.for_user(user)
     access_token = str(refresh.access_token)
+    refresh_token = str(refresh)
     csrf_token = get_token(request) if request else None
 
+    # Set access token cookie
     response.set_cookie(
         key="access_token",
         value=access_token,
         httponly=True,
-        secure=True,
+        secure=True,  # Set to False for development if not using HTTPS
         samesite="Lax",
-        max_age=60 * 15,
+        max_age=60 * 15,  # 15 minutes
+    )
+    
+    # Set refresh token cookie
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_token,
+        httponly=True,
+        secure=True,  # Set to False for development if not using HTTPS
+        samesite="Lax",
+        max_age=60 * 60 * 24 * 7,  # 7 days
     )
 
+    # Set CSRF token cookie
     if csrf_token:
         response.set_cookie(
             key="csrftoken",
             value=csrf_token,
             httponly=False,
-            secure=True,
+            secure=True,  # Set to False for development if not using HTTPS
             samesite="Lax",
             max_age=24 * 60 * 60,  # 24 hours
         )
@@ -163,6 +179,7 @@ def set_auth_cookies(response, user, request=None):
 @permission_classes([AllowAny])
 @ensure_csrf_cookie
 def get_csrf_token(request):
+    """Get CSRF token endpoint"""
     csrf_token = get_token(request)
     return Response({'csrfToken': csrf_token})
 
@@ -231,45 +248,95 @@ class LoginView(ObtainAuthToken):
         
 
 # @method_decorator(csrf_exempt, name='dispatch')
-@permission_classes([AllowAny])
 class LogoutView(APIView):
-    """Logout view to remove token and session"""
-    permission_classes = [AllowAny]
-    
-    def post(self, request):
-        response = Response({"message": "Logged out"})
-        response.delete_cookie(
-            "access_token",
-            samesite="Lax"
-        )
-        response.delete_cookie(
-            "csrftoken",
-            samesite="Lax"
-        )
-        return response
-
-class RefreshTokenView(APIView):
-    """
-    Refresh the JWT token - for future implementation
-    Note: This would require storing refresh tokens in httpOnly cookies too
-    """
+    """Logout view that clears cookies"""
     permission_classes = [IsAuthenticated]
     
     def post(self, request):
-        # For now, just return current user info
-        # You can implement refresh token logic here later
-        response = Response({
-            'user': UserSerializer(request.user).data,
-            'message': 'Token refreshed'
-        })
-        return set_auth_cookies(response, request.user, request)
+        try:
+            # Get refresh token and blacklist it
+            refresh_token = request.COOKIES.get('refresh_token')
+            if refresh_token:
+                token = RefreshToken(refresh_token)
+                token.blacklist()
+        except Exception as e:
+            logger.error(f"Error blacklisting token: {str(e)}")
+        
+        response = Response({'message': 'Logout successful'})
+        
+        # Clear all auth cookies
+        response.delete_cookie('access_token')
+        response.delete_cookie('refresh_token')
+        response.delete_cookie('csrftoken')
+        
+        return response
+
+class RefreshTokenView(APIView):
+    """Refresh JWT tokens using the refresh token from cookies"""
+    permission_classes = [AllowAny]
     
-    
+    def post(self, request):
+        try:
+            # Get refresh token from cookie
+            refresh_token = request.COOKIES.get('refresh_token')
+            
+            if not refresh_token:
+                logger.warning("Refresh token not found in cookies")
+                return Response(
+                    {'error': 'Refresh token not found'}, 
+                    status=401
+                )
+            
+            # Validate and refresh the token
+            try:
+                refresh = RefreshToken(refresh_token)
+                # Get user from the refresh token
+                user_id = refresh.payload.get('user_id')
+                if not user_id:
+                    raise TokenError("Invalid token payload")
+                
+                # Import User model here to avoid circular imports
+                from django.contrib.auth import get_user_model
+                User = get_user_model()
+                user = User.objects.get(id=user_id)
+                
+                # Create response with user data
+                response = Response({
+                    'message': 'Token refreshed successfully',
+                    'user': UserSerializer(user).data
+                })
+                
+                # Set new tokens in cookies
+                return set_auth_cookies(response, user, request)
+                
+            except (TokenError, InvalidToken) as e:
+                logger.warning(f"Invalid refresh token: {str(e)}")
+                response = Response(
+                    {'error': 'Invalid or expired refresh token'}, 
+                    status=401
+                )
+                # Clear invalid cookies
+                response.delete_cookie('access_token', path='/')
+                response.delete_cookie('refresh_token', path='/')
+                response.delete_cookie('csrftoken', path='/')
+                return response
+                
+        except Exception as e:
+            logger.error(f"Unexpected error in token refresh: {str(e)}")
+            return Response(
+                {'error': 'Token refresh failed'}, 
+                status=500
+            )
+        
 class ManageUserView(generics.RetrieveUpdateAPIView):
     """Manage the authenticated user"""
     serializer_class = UserSerializer
     permission_classes = [IsAuthenticated]
     
+    def get_object(self):
+        """Retrieve and return authenticated user"""
+        return self.request.user
+ 
     def get_object(self):
         """Retrieve and return authenticated user"""
         return self.request.user
