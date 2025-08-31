@@ -51,7 +51,7 @@ class UserCreateSerializer(serializers.ModelSerializer):
         user = User.objects.create_user(
             username=validated_data['username'],
             password=validated_data['password'],
-            phone_number=validated_data['phone_number'],
+            phone_number=validated_data.get('phone_number'),
             gender=validated_data.get('gender', 'Male'),
             occupation=validated_data.get('occupation', 'Student'),
             fname=validated_data.get('fname'),

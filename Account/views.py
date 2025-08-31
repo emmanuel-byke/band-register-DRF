@@ -148,7 +148,7 @@ def set_auth_cookies(response, user, request=None):
         value=access_token,
         httponly=True,
         secure=True,  # Set to False for development if not using HTTPS
-        samesite="Lax",
+        samesite="None",
         max_age=60 * 15,  # 15 minutes
     )
     
@@ -158,7 +158,7 @@ def set_auth_cookies(response, user, request=None):
         value=refresh_token,
         httponly=True,
         secure=True,  # Set to False for development if not using HTTPS
-        samesite="Lax",
+        samesite="None",
         max_age=60 * 60 * 24 * 7,  # 7 days
     )
 
@@ -169,7 +169,7 @@ def set_auth_cookies(response, user, request=None):
             value=csrf_token,
             httponly=False,
             secure=True,  # Set to False for development if not using HTTPS
-            samesite="Lax",
+            samesite="None",
             max_age=24 * 60 * 60,  # 24 hours
         )
 

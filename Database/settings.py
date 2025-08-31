@@ -73,17 +73,18 @@ CORS_ALLOWED_ORIGINS = [
 CSRF_COOKIE_NAME = 'csrftoken'
 CSRF_COOKIE_HTTPONLY = False
 CSRF_COOKIE_SECURE = SECURE_COOKIES
-CSRF_COOKIE_SAMESITE = 'Lax'
+CSRF_COOKIE_SAMESITE = 'None'
 CSRF_USE_SESSIONS = False
 
 # Session settings (even though we're using JWT, sessions might be used for CSRF)
 SESSION_COOKIE_SECURE = SECURE_COOKIES
-SESSION_COOKIE_SAMESITE = 'Lax'
+SESSION_COOKIE_SAMESITE = 'None'
 
 
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:5173",
-    "https://bandregister.netlify.app"
+    "https://bandregister.netlify.app",
+    "https://band-register-drf.onrender.com"
 ]
 
 SIMPLE_JWT = {
