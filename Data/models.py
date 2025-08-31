@@ -44,7 +44,7 @@ class Division(models.Model):
     showUser = models.BooleanField(default=True)
     baseUser = models.CharField(max_length=128, default='Member')
     baseUserModifier = models.CharField(max_length=128, default='Available')
-    
+
     venues = models.ManyToManyField(Venue, through='PendingRequest', blank=True, related_name='divisions')
     songs = models.ManyToManyField(SongsLearnt, blank=True, related_name='divisions')
     attendances = models.ManyToManyField(Venue, through='Attendance', related_name='division_attendees')

@@ -325,13 +325,15 @@ class DivisionDetailSerializer(serializers.ModelSerializer):
     """Detailed serializer for single division view"""
     venue_data = VenueSerializer(source='venues', many=True, read_only=True)
     songs = SongsLearntSerializer(many=True, read_only=True)
-    attendance_data = AttendanceSerializer(source='attendance', many=True, read_only=True)
-    absent_data = AbsentSerializer(source='absent', many=True, read_only=True)
+    attendance_data = AttendanceSerializer(source='attendances', many=True, read_only=True)
+    absent_data = AbsentSerializer(source='absents', many=True, read_only=True)
     ratings_data = RatingsSerializer(source='ratings', many=True, read_only=True)
     performance_data = PerformanceSerializer(source='performance', many=True, read_only=True)
     pending_requests_data = PendingRequestSerializer(source='pending_requests', many=True, read_only=True)
     average_rating = serializers.SerializerMethodField()
     venue_stats = serializers.SerializerMethodField()
+
+    member_count = serializers.SerializerMethodField()
     
     class Meta:
         model = Division
@@ -339,8 +341,12 @@ class DivisionDetailSerializer(serializers.ModelSerializer):
         extra_fields = [
             'attendance_data', 'absent_data', 'ratings_data', 
             'performance_data', 'pending_requests_data', 'average_rating',
-            'venue_stats'
+            'venue_stats', 'member_count'
         ]
+
+    def get_member_count(self, obj):
+        # return 0
+        return obj.users.count()
     
     def get_average_rating(self, obj):
         avg = obj.ratings.aggregate(avg_value=Avg('value')).get('avg_value')
