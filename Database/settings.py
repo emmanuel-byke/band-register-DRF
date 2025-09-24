@@ -12,6 +12,9 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 
 from pathlib import Path
 from datetime import timedelta
+import os
+import dj_database_url
+
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -139,12 +142,31 @@ WSGI_APPLICATION = 'Database.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.sqlite3',
+#         'NAME': BASE_DIR / 'db.sqlite3',
+#     }
+# }
+
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.postgresql',
+#         'NAME': 'bandregisterdb',          # Database name (from pgAdmin)
+#         'USER': 'postgres',        # Role name
+#         'PASSWORD': 'Hasebe54',     # Role password
+#         'HOST': 'localhost',     # If PostgreSQL is on your local machine
+#         'PORT': '5432',          # Default PostgreSQL port
+#     }
+# }
+
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
+    'default': dj_database_url.config(
+        default=os.getenv("postgresql://bandregisterdb_user:I1T1gFyjGXdLCtTo28PgKollCWwV0KLy@dpg-d39vk1vdiees73fdsv3g-a/bandregisterdb")
+    )
 }
+
+
 
 
 # Password validation
