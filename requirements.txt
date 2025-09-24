@@ -4,6 +4,7 @@ django-filter==25.1
 djangorestframework==3.15.2
 djangorestframework_simplejwt==5.5.0
 drf-nested-forms==1.1.8
+dj_database_url
 gunicorn==23.0.0
 Jinja2==3.1.6
 pillow==11.1.0
